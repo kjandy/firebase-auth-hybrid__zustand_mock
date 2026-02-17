@@ -1,6 +1,11 @@
+// ============================================
+// 9-2. フローティング投稿ボタン
+//      (components/FloatingPostButton.jsx)
+// ============================================
 "use client";
-
 import { useState } from "react";
+import useAuthStore from "@/stores/authStore";
+import useFirestoreStore from "@/stores/firestoreStore";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -14,7 +19,38 @@ import { Label } from "@/components/ui/label";
 import { PenSquare } from "lucide-react";
 
 export default function FloatingPostButton() {
+  const { user } = useAuthStore();
+  const { addPost } = useFirestoreStore();
   const [open, setOpen] = useState(false);
+  const [title, setTitle] = useState("");
+  const [content, setContent] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  if (!user) return null;
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!title || !content) return;
+
+    setIsSubmitting(true);
+    try {
+      +(await addPost(
+        user.uid,
+        user.email ?? "",
+        user.displayName ?? "",
+        user.photoURL ?? "",
+        title,
+        content,
+      ));
+      setTitle("");
+      setContent("");
+      setOpen(false);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -28,12 +64,19 @@ export default function FloatingPostButton() {
       </DialogTrigger>
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
-          <DialogTitle>新規投稿（モック）</DialogTitle>
+          <DialogTitle>新規投稿</DialogTitle>
         </DialogHeader>
-        <form className="space-y-4 mt-4">
+        <form onSubmit={handleSubmit} className="space-y-4 mt-4">
           <div className="space-y-2">
             <Label htmlFor="post-title">タイトル</Label>
-            <Input id="post-title" placeholder="投稿のタイトル" defaultValue="モック投稿" />
+            <Input
+              id="post-title"
+              placeholder="投稿のタイトル"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              required
+              disabled={isSubmitting}
+            />
           </div>
           <div className="space-y-2">
             <Label htmlFor="post-content">内容</Label>
@@ -41,15 +84,23 @@ export default function FloatingPostButton() {
               id="post-content"
               className="w-full min-h-[120px] rounded-md border border-input bg-background px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-ring"
               placeholder="何を考えていますか？"
-              defaultValue="このダイアログは表示確認用です。"
+              value={content}
+              onChange={(e) => setContent(e.target.value)}
+              required
+              disabled={isSubmitting}
             />
           </div>
           <div className="flex justify-end gap-2">
-            <Button type="button" variant="outline" onClick={() => setOpen(false)}>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setOpen(false)}
+              disabled={isSubmitting}
+            >
               キャンセル
             </Button>
-            <Button type="button" onClick={() => setOpen(false)}>
-              投稿
+            <Button type="submit" disabled={isSubmitting}>
+              {isSubmitting ? "投稿中..." : "投稿"}
             </Button>
           </div>
         </form>
